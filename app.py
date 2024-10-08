@@ -4,6 +4,7 @@ import pandas as pd
 from pathlib import Path
 from datetime import timedelta
 import os
+import io
 
 # Title of the application
 st.title("Bank Statement Uploader")
@@ -27,6 +28,7 @@ if uploaded_files:
         bank_df = pd.concat(bank_df_list, ignore_index=True)
 
         # Display the combined DataFrame
+        st.write("This is what the first spreadsheet looks like before cleaning:")
         st.write(bank_df)
 
         # ### Cleaning the DataFrame
@@ -63,6 +65,7 @@ if uploaded_files:
         bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
 
         # Display the cleaned DataFrame
+        st.write("This is how the combined spreadsheet appears after cleaning:")
         st.write(bank_credit_df)
 
         # Create a CSV from the cleaned DataFrame
