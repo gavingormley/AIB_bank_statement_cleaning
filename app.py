@@ -27,11 +27,14 @@ if uploaded_files:
     if bank_df_list:
         bank_df = pd.concat(bank_df_list, ignore_index=True)
 
-        # Display the combined DataFrame
+        # Display message before showing the first DataFrame
         st.write("This is what the first spreadsheet looks like before cleaning:")
         st.write(bank_df)
 
         # ### Cleaning the DataFrame
+        # Your cleaning logic here...
+        # Example cleaning logic: (Add your actual cleaning code)
+        
         # Keep only credit rows (or rows with date)
         bank_credit_df = bank_df[~(bank_df['Date'].isna() & bank_df['Credit'].isna())]
 
@@ -54,7 +57,6 @@ if uploaded_files:
         bank_credit_df['Credit'] = bank_credit_df['Credit'].astype(str).str.replace(r'[^0-9,\.]', '', regex=True)
 
         # Handle the potential mixed formats
-        # Replace commas (only for decimals) with periods
         bank_credit_df['Credit'] = bank_credit_df['Credit'].str.replace(r'(\d+),(\d+)', r'\1.\2', regex=True)
 
         # Convert the cleaned column to numeric
@@ -64,16 +66,15 @@ if uploaded_files:
         # Remove all rows where 'Credit' is NaN
         bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
 
-        # Display the cleaned DataFrame
+        # Display message after cleaning
         st.write("This is how the combined spreadsheet appears after cleaning:")
         st.write(bank_credit_df)
 
         # Create a CSV from the cleaned DataFrame
         csv = bank_credit_df.to_csv(index=False)
 
-        # Convert the CSV to a bytes object
-        buffer = io.StringIO(csv)
-        buffer.seek(0)
+        # Encode the CSV string to bytes
+        buffer = io.BytesIO(csv.encode('utf-8'))  # Convert string to bytes
 
         # Add a download button
         st.download_button(
