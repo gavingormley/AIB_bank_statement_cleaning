@@ -131,7 +131,7 @@ if uploaded_files:
 
             # Add a download button
             st.download_button(
-                label="Download Cleaned Payments Data",
+                label="Download Cleaned Spreadsheet",
                 data=buffer,
                 file_name='cleaned_payments.csv',
                 mime='text/csv'
