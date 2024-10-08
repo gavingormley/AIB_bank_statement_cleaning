@@ -7,7 +7,7 @@ import os
 import io
 
 # Title of the application
-st.title("Bank Statement Uploader")
+st.title("AIB Bank Statement Cleaner")
 
 # File uploader for bank statements
 uploaded_files = st.file_uploader("Upload Bank Statements", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
