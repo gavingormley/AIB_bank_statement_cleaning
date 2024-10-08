@@ -6,11 +6,12 @@ from datetime import timedelta
 import os
 import io
 
-# Title of the application
 st.title("AIB Bank Statement Cleaner")
+st.write("Note that files are arranged alphabetically. If necessary, rename them according to their chronological order")
+st.write("e.g. "1 Jan-May", "2 Jun-Dec")
 
 # File uploader for bank statements
-uploaded_files = st.file_uploader("Upload Bank Statements", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
+uploaded_files = st.file_uploader("Upload files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
 
 # Add a radio button for selecting Receipts or Payments
 transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
