@@ -12,6 +12,9 @@ st.title("Bank Statement Uploader")
 # File uploader for bank statements
 uploaded_files = st.file_uploader("Upload Bank Statements", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
 
+# Add a radio button for selecting Receipts or Payments
+transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
+
 bank_df_list = []
 
 # Read the uploaded files
