@@ -67,6 +67,9 @@ if uploaded_files:
             # Remove all rows where 'Credit' is NaN
             bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
 
+            # Reset the index after cleaning
+            bank_credit_df.reset_index(drop=True, inplace=True)
+
             # Display the cleaned DataFrame for Receipts
             st.write("This is how the combined spreadsheet appears after cleaning:")
             st.write(bank_credit_df)
@@ -111,6 +114,12 @@ if uploaded_files:
 
             # Convert the cleaned column to numeric
             bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Debit'], errors='coerce')
+
+            # Remove all rows where 'Debit' is NaN
+            bank_debit_df = bank_debit_df.dropna(subset=['Debit'])
+
+            # Reset the index after cleaning
+            bank_debit_df.reset_index(drop=True, inplace=True)
 
             # Display the cleaned DataFrame for Payments
             st.write("This is how the combined spreadsheet appears after cleaning:")
