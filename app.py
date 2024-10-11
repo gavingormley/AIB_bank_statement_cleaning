@@ -13,8 +13,10 @@ st.write('e.g. "1 Jan-May", "2 Jun-Dec"')
 # Initialize session state variables if they do not exist
 if 'uploaded_files' not in st.session_state:
     st.session_state.uploaded_files = []
-if 'analysis_df' not in st.session_state:
-    st.session_state.analysis_df = None
+if 'previous_analysis' not in st.session_state:
+    st.session_state.previous_analysis = None
+if 'cleaned_df' not in st.session_state:
+    st.session_state.cleaned_df = None
 
 # Add a radio button for selecting Receipts or Payments at the beginning
 transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
@@ -26,12 +28,36 @@ uploaded_files = st.file_uploader("Upload files", type=['xlsx', 'xls', 'csv'], a
 if uploaded_files:
     st.session_state.uploaded_files = uploaded_files
 
+# Add an option to upload the previous year's analysis
+previous_year_upload = st.radio("Upload Previous Year's Analysis?", ('No', 'Yes'))
+
+if previous_year_upload == 'Yes':
+    previous_analysis_file = st.file_uploader("Upload Previous Year Analysis File", type=['xlsx', 'xls'], key='previous_analysis_uploader')
+    
+    if previous_analysis_file:
+        # Load the previous analysis data
+        previous_df = pd.read_excel(previous_analysis_file, sheet_name='Payments Analysis' if transaction_type == 'Payments' else 'Receipts Analysis', header=None)
+        
+        # Find the first row where the first column contains "Date"
+        date_row_index = previous_df[previous_df.iloc[:, 0].str.contains("Date", na=False)].index[0]
+        previous_df.columns = previous_df.iloc[date_row_index]
+        previous_df = previous_df[date_row_index + 1:]
+
+        # Resetting index
+        previous_df.reset_index(drop=True, inplace=True)
+
+        # Keep only the necessary columns for matching
+        previous_df['details_match'] = previous_df['Details'].str.replace(r'\s+', '', regex=True).str.lower()
+        st.session_state.previous_analysis = previous_df
+        st.write("Previous Year Analysis Loaded:")
+        st.write(previous_df)
+
 # Add a button to clear all uploaded data
 if st.button("Clear All Uploaded Data"):
     # Clear session state for uploaded files and analysis
     st.session_state.uploaded_files = []
-    st.session_state.analysis_df = None
-    st.session_state.cleaned_df = None  # This will hold cleaned DataFrame to avoid referencing errors
+    st.session_state.previous_analysis = None
+    st.session_state.cleaned_df = None
     st.success("All uploaded data has been cleared.")
 
 # Process the uploaded files only if there are any
@@ -68,6 +94,14 @@ if st.session_state.uploaded_files:
             bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
             bank_credit_df.reset_index(drop=True, inplace=True)
 
+            # If previous analysis is provided, merge with the current data
+            if st.session_state.previous_analysis is not None:
+                previous_df = st.session_state.previous_analysis
+                bank_credit_df['details_match'] = bank_credit_df['Details'].str.replace(r'\s+', '', regex=True).str.lower()
+                merged_df = pd.merge(bank_credit_df, previous_df[['details_match', 'Analysis']], on='details_match', how='left')
+                st.write("Merged Data with Previous Year Analysis:")
+                st.write(merged_df)
+
             # Display the cleaned DataFrame for Receipts
             st.write("This is how the combined spreadsheet appears after cleaning:")
             st.write(bank_credit_df)
@@ -97,6 +131,14 @@ if st.session_state.uploaded_files:
             bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Debit'], errors='coerce')
             bank_debit_df = bank_debit_df.dropna(subset=['Debit'])
             bank_debit_df.reset_index(drop=True, inplace=True)
+
+            # If previous analysis is provided, merge with the current data
+            if st.session_state.previous_analysis is not None:
+                previous_df = st.session_state.previous_analysis
+                bank_debit_df['details_match'] = bank_debit_df['Details'].str.replace(r'\s+', '', regex=True).str.lower()
+                merged_df = pd.merge(bank_debit_df, previous_df[['details_match', 'Analysis']], on='details_match', how='left')
+                st.write("Merged Data with Previous Year Analysis:")
+                st.write(merged_df)
 
             # Display the cleaned DataFrame for Payments
             st.write("This is how the combined spreadsheet appears after cleaning:")
