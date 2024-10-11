@@ -107,31 +107,8 @@ if st.button("Process Statements", key='process_button'):
                     st.warning(f"Failed to read {file.name}: {e}")
             return bank_df_list
 
-# Custom CSS to style the button
-st.markdown(
-    """
-    <style>
-    .stButton > button {
-        background-color: #4CAF50;  /* Green background */
-        color: white;                /* White text */
-        border: none;                /* No border */
-        padding: 10px;              /* Padding */
-        text-align: center;          /* Centered text */
-        text-decoration: none;       /* No underline */
-        display: inline-block;       /* Inline block */
-        font-size: 16px;            /* Font size */
-        margin: 10px 2px;           /* Margins */
-        border-radius: 5px;         /* Rounded corners */
-    }
-    .stButton > button:hover {
-        background-color: #45a049;  /* Darker green on hover */
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
         # Combine all bank statements into one DataFrame
+        bank_df_list = process_bank_files(st.session_state.uploaded_files)  # Call the function to process files
         if bank_df_list:
             try:
                 bank_df = pd.concat(bank_df_list, ignore_index=True)
