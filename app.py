@@ -58,7 +58,14 @@ if add_previous_year:
                 # Create the 'Match' column by stripping whitespace and converting to lowercase
                 analysis_df['Match'] = analysis_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
                 
-                return analysis_df
+                # Create a mapping of the most frequent analysis for each unique match
+                analysis_mapping = (
+                    analysis_df.groupby('Match')['Analysis']
+                    .agg(lambda x: x.value_counts().index[0])  # Get the most common analysis
+                    .reset_index()
+                )
+                
+                return analysis_mapping
             except Exception as e:
                 st.error(f"Error processing previous year's analysis: {e}")
                 return None
@@ -119,7 +126,7 @@ if st.button("Process Statements", key='process_button'):
                 st.stop()
 
             # Cleaning Function
-            def clean_data(bank_df, transaction_type, analysis_df=None):
+            def clean_data(bank_df, transaction_type, analysis_mapping=None):
                 try:
                     if transaction_type == 'Receipts':
                         # Cleaning the dataframe for Receipts
@@ -145,17 +152,14 @@ if st.button("Process Statements", key='process_button'):
                         # Create a matching column by stripping whitespace and converting to lowercase
                         bank_credit_df['Match'] = bank_credit_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
 
-                        # Merge with previous year's analysis if available
-                        if analysis_df is not None:
-                            bank_credit_df = pd.merge(
-                                bank_credit_df,
-                                analysis_df[['Match', 'Analysis']],
-                                on='Match',
+                        # Merge with previous year's analysis mapping if available
+                        if analysis_mapping is not None:
+                            bank_credit_df = bank_credit_df.merge(
+                                analysis_mapping,
+                                left_on='Match',
+                                right_on='Match',
                                 how='left'
                             )
-
-                        # Drop 'Match' column from final DataFrame
-                        bank_credit_df.drop(columns=['Match'], inplace=True, errors='ignore')
 
                         return bank_credit_df
 
@@ -183,17 +187,14 @@ if st.button("Process Statements", key='process_button'):
                         # Create a matching column by stripping whitespace and converting to lowercase
                         bank_debit_df['Match'] = bank_debit_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
 
-                        # Merge with previous year's analysis if available
-                        if analysis_df is not None:
-                            bank_debit_df = pd.merge(
-                                bank_debit_df,
-                                analysis_df[['Match', 'Analysis']],
-                                on='Match',
+                        # Merge with previous year's analysis mapping if available
+                        if analysis_mapping is not None:
+                            bank_debit_df = bank_debit_df.merge(
+                                analysis_mapping,
+                                left_on='Match',
+                                right_on='Match',
                                 how='left'
                             )
-
-                        # Drop 'Match' column from final DataFrame
-                        bank_debit_df.drop(columns=['Match'], inplace=True, errors='ignore')
 
                         return bank_debit_df
 
@@ -206,7 +207,6 @@ if st.button("Process Statements", key='process_button'):
             if cleaned_data is not None:
                 st.write("**Preview of Cleaned Data:**")
                 st.dataframe(cleaned_data)
-                # Optionally, you could add more functionality to download cleaned data as needed.
 
     else:
         st.warning("Please upload bank statements before processing.")
