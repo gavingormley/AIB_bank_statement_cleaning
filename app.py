@@ -98,7 +98,8 @@ if st.button("Clear Uploaded Files"):
     st.success("Uploaded files and previous year's analysis cleared.")
 
 # Button to Trigger Processing
-if st.button("Process Statements", key='process_button'):
+# Use st.button with a custom style for visibility
+if st.button("Process Statements", key='process_button', help="Click to process the uploaded bank statements."):
     # Process uploaded files only if they exist in session state
     if st.session_state.uploaded_files:
         def process_bank_files(uploaded_files):
@@ -161,6 +162,8 @@ if st.button("Process Statements", key='process_button'):
                                 how='left'
                             )
 
+                        # Drop the 'Match' column before returning
+                        bank_credit_df.drop(columns=['Match'], inplace=True)
                         return bank_credit_df
 
                     elif transaction_type == 'Payments':
@@ -196,17 +199,19 @@ if st.button("Process Statements", key='process_button'):
                                 how='left'
                             )
 
+                        # Drop the 'Match' column before returning
+                        bank_debit_df.drop(columns=['Match'], inplace=True)
                         return bank_debit_df
 
                 except Exception as e:
                     st.error(f"Error during data cleaning: {e}")
                     return None
 
-            cleaned_data = clean_data(bank_df, transaction_type, st.session_state.previous_year_analysis)
+            cleaned_data_credit = clean_data(bank_df, transaction_type, st.session_state.previous_year_analysis)
 
-            if cleaned_data is not None:
+            if cleaned_data_credit is not None:
                 st.write("**Preview of Cleaned Data:**")
-                st.dataframe(cleaned_data)
+                st.dataframe(cleaned_data_credit)
 
     else:
         st.warning("Please upload bank statements before processing.")
