@@ -21,7 +21,7 @@ add_previous_year = st.checkbox("Do you want to upload the previous year's analy
 
 if add_previous_year:
     uploaded_analysis = st.file_uploader("Upload previous year's analysis", type=['xlsx', 'xls'], key='analysis_uploader')
-    
+
     if uploaded_analysis:
         def process_previous_analysis(uploaded_analysis, transaction_type):
             try:
@@ -61,7 +61,7 @@ if add_previous_year:
 
         # Get the selected transaction type for analysis processing
         transaction_type_analysis = st.selectbox("Select Transaction Type for Analysis:", ('Receipts', 'Payments'), key='analysis_transaction_type')
-        
+
         analysis_df_processed = process_previous_analysis(uploaded_analysis, transaction_type_analysis)
         if analysis_df_processed is not None:
             st.session_state.analysis_df = analysis_df_processed
