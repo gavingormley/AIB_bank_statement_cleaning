@@ -21,7 +21,7 @@ add_previous_year = st.checkbox("Do you want to upload the previous year's analy
 
 if add_previous_year:
     uploaded_analysis = st.file_uploader("Upload previous year's analysis", type=['xlsx', 'xls'], key='analysis_uploader')
-
+    
     if uploaded_analysis:
         def process_previous_analysis(uploaded_analysis, transaction_type):
             try:
@@ -61,7 +61,7 @@ if add_previous_year:
 
         # Get the selected transaction type for analysis processing
         transaction_type_analysis = st.selectbox("Select Transaction Type for Analysis:", ('Receipts', 'Payments'), key='analysis_transaction_type')
-
+        
         analysis_df_processed = process_previous_analysis(uploaded_analysis, transaction_type_analysis)
         if analysis_df_processed is not None:
             st.session_state.analysis_df = analysis_df_processed
@@ -69,32 +69,32 @@ if add_previous_year:
         else:
             st.session_state.analysis_df = None
 
+# Section for Selecting Transaction Type
+st.header("Select Transaction Type to Process")
+transaction_type = st.selectbox("Select Transaction Type:", ('Receipts', 'Payments'), key='transaction_type_selector')
+
 # Section for Uploading Current Year's Bank Statements
 st.header("Upload Current Year's Bank Statements")
 uploaded_files = st.file_uploader("Upload current year's files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True, key='current_files_uploader')
 
 if uploaded_files:
     # Store uploaded files in session state if not already stored
-    if not st.session_state.uploaded_files:
-        st.session_state.uploaded_files = uploaded_files
-        st.success("Files uploaded successfully. They will be available for processing.")
-    else:
-        # If new files are uploaded, replace the existing ones
-        if st.session_state.uploaded_files != uploaded_files:
-            st.session_state.uploaded_files = uploaded_files
-            st.success("Uploaded files have been updated.")
-    
+    st.session_state.uploaded_files.extend(uploaded_files)
+
     # Display the names of the uploaded files
     st.write("**Uploaded Files:**")
     for file in st.session_state.uploaded_files:
         st.write(f"- {file.name}")
-    
-    # Section for Selecting Transaction Type and Processing
-    st.header("Process Transactions")
-    transaction_type = st.selectbox("Select Transaction Type to Process:", ('Receipts', 'Payments'), key='transaction_type_selector')
-    
-    # Button to Trigger Processing
-    if st.button("Process Selected Transaction Type"):
+
+# Button to clear uploaded files
+if st.button("Clear Uploaded Files"):
+    st.session_state.uploaded_files.clear()
+    st.success("Uploaded files cleared.")
+
+# Button to Trigger Processing
+if st.button("Process Selected Transaction Type"):
+    # Process uploaded files only if they exist in session state
+    if st.session_state.uploaded_files:
         def process_bank_files(uploaded_files):
             bank_df_list = []
             for file in uploaded_files:
@@ -200,35 +200,15 @@ if uploaded_files:
                         return bank_debit_df
 
                 except Exception as e:
-                    st.error(f"Error during cleaning process: {e}")
+                    st.error(f"Error during data cleaning: {e}")
                     return None
 
-            # Clean the data based on the selected transaction type
-            cleaned_df = clean_data(bank_df, transaction_type, st.session_state.analysis_df)
+            cleaned_data = clean_data(bank_df, transaction_type, st.session_state.analysis_df)
 
-            if cleaned_df is not None:
-                st.write("**This is how the combined spreadsheet appears after cleaning:**")
-                try:
-                    st.dataframe(cleaned_df)
-                except Exception as e:
-                    st.error(f"Error displaying DataFrame: {e}")
+            if cleaned_data is not None:
+                st.write("**Preview of Cleaned Data:**")
+                st.dataframe(cleaned_data.head())
+                # Optionally, you could add more functionality to download cleaned data as needed.
 
-                # Create a CSV from the cleaned DataFrame
-                try:
-                    csv = cleaned_df.to_csv(index=False)
-                    buffer = io.BytesIO(csv.encode('utf-8'))
-
-                    # Define the download button label and filename based on transaction type
-                    download_label = "Download Cleaned Receipts Data" if transaction_type == 'Receipts' else "Download Cleaned Payments Data"
-                    file_name = 'cleaned_receipts.csv' if transaction_type == 'Receipts' else 'cleaned_payments.csv'
-
-                    st.download_button(
-                        label=download_label,
-                        data=buffer,
-                        file_name=file_name,
-                        mime='text/csv'
-                    )
-                except Exception as e:
-                    st.error(f"Error generating download link: {e}")
-            else:
-                st.error("No data available after cleaning.")
+    else:
+        st.warning("Please upload bank statements before processing.")
