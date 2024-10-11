@@ -9,11 +9,15 @@ import io
 # Initialize Session State for uploaded files and analysis
 if 'uploaded_files' not in st.session_state:
     st.session_state.uploaded_files = []
-if 'analysis_df' not in st.session_state:
-    st.session_state.analysis_df = None
+if 'previous_year_analysis' not in st.session_state:
+    st.session_state.previous_year_analysis = None
 
 st.title("AIB Bank Statement Cleaner")
 st.write("**Note:** Files are arranged alphabetically. If necessary, rename them according to their chronological order (e.g., '1 Jan-May', '2 Jun-Dec').")
+
+# Section for Selecting Transaction Type
+st.header("Select Transaction Type")
+transaction_type = st.selectbox("Select Transaction Type:", ('Receipts', 'Payments'), key='transaction_type_selector')
 
 # Section for Uploading Previous Year's Analysis
 st.header("Previous Year's Analysis (Optional)")
@@ -59,19 +63,13 @@ if add_previous_year:
                 st.error(f"Error processing previous year's analysis: {e}")
                 return None
 
-        # Get the selected transaction type for analysis processing
-        transaction_type_analysis = st.selectbox("Select Transaction Type for Analysis:", ('Receipts', 'Payments'), key='analysis_transaction_type')
-        
-        analysis_df_processed = process_previous_analysis(uploaded_analysis, transaction_type_analysis)
+        # Process the uploaded analysis
+        analysis_df_processed = process_previous_analysis(uploaded_analysis, transaction_type)
         if analysis_df_processed is not None:
-            st.session_state.analysis_df = analysis_df_processed
+            st.session_state.previous_year_analysis = analysis_df_processed
             st.success("Previous year's analysis loaded successfully.")
         else:
-            st.session_state.analysis_df = None
-
-# Section for Selecting Transaction Type
-st.header("Select Transaction Type to Process")
-transaction_type = st.selectbox("Select Transaction Type:", ('Receipts', 'Payments'), key='transaction_type_selector')
+            st.session_state.previous_year_analysis = None
 
 # Section for Uploading Current Year's Bank Statements
 st.header("Upload Current Year's Bank Statements")
@@ -89,7 +87,8 @@ if uploaded_files:
 # Button to clear uploaded files
 if st.button("Clear Uploaded Files"):
     st.session_state.uploaded_files.clear()
-    st.success("Uploaded files cleared.")
+    st.session_state.previous_year_analysis = None  # Clear previous year analysis as well
+    st.success("Uploaded files and previous year's analysis cleared.")
 
 # Button to Trigger Processing
 if st.button("Process Selected Transaction Type"):
@@ -115,7 +114,7 @@ if st.button("Process Selected Transaction Type"):
             try:
                 bank_df = pd.concat(bank_df_list, ignore_index=True)
                 st.write("**Preview of Combined Bank Statements Before Cleaning:**")
-                st.dataframe(bank_df.head())  # Display only the first few rows for brevity
+                st.dataframe(bank_df)  # Display only the first few rows for brevity
             except Exception as e:
                 st.error(f"Error combining bank statements: {e}")
                 st.stop()
@@ -203,11 +202,11 @@ if st.button("Process Selected Transaction Type"):
                     st.error(f"Error during data cleaning: {e}")
                     return None
 
-            cleaned_data = clean_data(bank_df, transaction_type, st.session_state.analysis_df)
+            cleaned_data = clean_data(bank_df, transaction_type, st.session_state.previous_year_analysis)
 
             if cleaned_data is not None:
                 st.write("**Preview of Cleaned Data:**")
-                st.dataframe(cleaned_data.head())
+                st.dataframe(cleaned_data)
                 # Optionally, you could add more functionality to download cleaned data as needed.
 
     else:
