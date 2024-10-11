@@ -9,6 +9,7 @@ import io
 st.title("AIB Bank Statement Cleaner")
 st.write("Note that files are arranged alphabetically. If necessary, rename them according to their chronological order")
 st.write('e.g. "1 Jan-May", "2 Jun-Dec"')
+
 # Add a radio button for selecting Receipts or Payments
 transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
 
@@ -180,15 +181,6 @@ if uploaded_files:
             cleaned_df = bank_credit_df if transaction_type == 'Receipts' else bank_debit_df
 
             if cleaned_df is not None:
-                # Inspect the data types of the DataFrame
-                st.write("Inspecting the data types of the cleaned DataFrame:")
-                st.write(cleaned_df.dtypes)
-
-                # Convert any problematic columns to strings
-                for col in cleaned_df.columns:
-                    if cleaned_df[col].apply(lambda x: isinstance(x, (list, dict, set))).any():
-                        cleaned_df[col] = cleaned_df[col].astype(str)
-
                 # Optionally, display a sample of the DataFrame
                 st.write("This is how the combined spreadsheet appears after cleaning:")
                 try:
@@ -212,7 +204,7 @@ if uploaded_files:
                         mime='text/csv'
                     )
                 except Exception as e:
-                    st.error(f"Error creating download CSV: {e}")
+                    st.error(f"Error generating download link: {e}")
 
         except Exception as e:
-            st.error(f"Error during cleaning process: {e}")
+            st.error(f"Error processing bank statements: {e}")
