@@ -18,16 +18,6 @@ if 'previous_analysis' not in st.session_state:
 if 'cleaned_df' not in st.session_state:
     st.session_state.cleaned_df = None
 
-# Add a radio button for selecting Receipts or Payments at the beginning
-transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
-
-# File uploader for bank statements
-uploaded_files = st.file_uploader("Upload files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
-
-# Store uploaded files in session state
-if uploaded_files:
-    st.session_state.uploaded_files = uploaded_files
-
 # Add an option to upload the previous year's analysis
 previous_year_upload = st.radio("Upload Previous Year's Analysis?", ('No', 'Yes'))
 
@@ -35,6 +25,9 @@ if previous_year_upload == 'Yes':
     previous_analysis_file = st.file_uploader("Upload Previous Year Analysis File", type=['xlsx', 'xls'], key='previous_analysis_uploader')
     
     if previous_analysis_file:
+        # Determine if we are processing Payments or Receipts
+        transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
+
         # Load the previous analysis data
         previous_df = pd.read_excel(previous_analysis_file, sheet_name='Payments Analysis' if transaction_type == 'Payments' else 'Receipts Analysis', header=None)
         
@@ -51,6 +44,17 @@ if previous_year_upload == 'Yes':
         st.session_state.previous_analysis = previous_df
         st.write("Previous Year Analysis Loaded:")
         st.write(previous_df)
+
+# Add a radio button for selecting Receipts or Payments after uploading the previous analysis
+if previous_year_upload == 'No' or st.session_state.previous_analysis is not None:
+    transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
+
+    # File uploader for bank statements
+    uploaded_files = st.file_uploader("Upload files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
+
+    # Store uploaded files in session state
+    if uploaded_files:
+        st.session_state.uploaded_files = uploaded_files
 
 # Add a button to clear all uploaded data
 if st.button("Clear All Uploaded Data"):
