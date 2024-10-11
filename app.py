@@ -9,8 +9,6 @@ import io
 st.title("AIB Bank Statement Cleaner")
 st.write("Note that files are arranged alphabetically. If necessary, rename them according to their chronological order")
 st.write('e.g. "1 Jan-May", "2 Jun-Dec"')
-
-
 # Add a radio button for selecting Receipts or Payments
 transaction_type = st.radio("Select Transaction Type:", ('Receipts', 'Payments'))
 
@@ -20,38 +18,66 @@ add_previous_year = st.checkbox("Do you want to upload the previous year's analy
 # Initialize analysis_df to None in case no analysis file is uploaded
 analysis_df = None
 
+# Function to process previous year's analysis
+def process_previous_analysis(uploaded_analysis, transaction_type):
+    try:
+        if transaction_type == 'Receipts':
+            sheet_name = 'ReceiptsAnalysis'
+        else:
+            sheet_name = 'Payments Analysis'
+        
+        # Read the specified sheet without assuming headers
+        temp_df = pd.read_excel(uploaded_analysis, sheet_name=sheet_name, header=None)
+        
+        # Find the header row where the first column contains "Date" (case-insensitive)
+        header_row_indices = temp_df[temp_df.iloc[:, 0].astype(str).str.contains("Date", case=False, na=False)].index.tolist()
+        if not header_row_indices:
+            st.error("No header row containing 'Date' found in the analysis file.")
+            return None
+        header_row = header_row_indices[0]
+        
+        # Set the header
+        temp_df.columns = temp_df.iloc[header_row]
+        temp_df = temp_df.drop(range(header_row + 1)).reset_index(drop=True)
+        
+        # Ensure only 'Details' and 'Analysis' columns are present
+        if 'Details' not in temp_df.columns:
+            st.error("'Details' column not found in the analysis file.")
+            return None
+        if 'Analysis' not in temp_df.columns:
+            st.error("'Analysis' column not found in the analysis file.")
+            return None
+        
+        # Select only 'Details' and 'Analysis' columns
+        analysis_df = temp_df[['Details', 'Analysis']].copy()
+        
+        # Create the 'Match' column by stripping whitespace and converting to lowercase
+        analysis_df['Match'] = analysis_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
+        
+        return analysis_df
+    except Exception as e:
+        st.error(f"Error processing previous year's analysis: {e}")
+        return None
+
 # If the user checks the box, show the file uploader for the previous year's analysis
 if add_previous_year:
     uploaded_analysis = st.file_uploader("Upload previous year's analysis", type=['xlsx', 'xls'])
     
-    # Load the previous year's analysis based on transaction type if a file is uploaded
     if uploaded_analysis:
-        try:
-            if transaction_type == 'Receipts':
-                analysis_df = pd.read_excel(uploaded_analysis, sheet_name='ReceiptsAnalysis', header=None)
-            elif transaction_type == 'Payments':
-                analysis_df = pd.read_excel(uploaded_analysis, sheet_name='Payments Analysis', header=None)
-            
-            # Find the row where the first column contains "Date" and use that as the header
-            header_row = analysis_df[analysis_df.iloc[:, 0].astype(str).str.contains("Date", case=False, na=False)].index
-            if not header_row.empty:
-                header_row = header_row[0]
-                analysis_df.columns = analysis_df.iloc[header_row]
-                analysis_df = analysis_df.drop(range(header_row + 1)).reset_index(drop=True)
-            else:
-                st.error("No header row containing 'Date' found in the analysis file.")
-                analysis_df = None
-        except Exception as e:
-            st.error(f"Error loading previous year's analysis: {e}")
-            analysis_df = None
+        analysis_df = process_previous_analysis(uploaded_analysis, transaction_type)
+        if analysis_df is not None:
+            st.success("Previous year's analysis loaded successfully.")
+        else:
+            st.error("Failed to load previous year's analysis.")
 
 # File uploader for bank statements
 uploaded_files = st.file_uploader("Upload current year's files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
 
 bank_df_list = []
 
-# Process the bank statement files after they've been uploaded
-if uploaded_files:
+# Function to process uploaded bank statement files
+def process_bank_files(uploaded_files):
+    bank_df_list = []
     for file in uploaded_files:
         try:
             if file.name.endswith('.csv'):
@@ -61,13 +87,18 @@ if uploaded_files:
             bank_df_list.append(df)
         except Exception as e:
             st.warning(f"Failed to read {file.name}: {e}")
+    return bank_df_list
+
+# Process the bank statement files after they've been uploaded
+if uploaded_files:
+    bank_df_list = process_bank_files(uploaded_files)
 
     # Combine all bank statements into one DataFrame
     if bank_df_list:
         try:
             bank_df = pd.concat(bank_df_list, ignore_index=True)
             st.write("This is what the first spreadsheet looks like before cleaning:")
-            st.write(bank_df)
+            st.dataframe(bank_df.head())  # Display only the first few rows for brevity
         except Exception as e:
             st.error(f"Error combining bank statements: {e}")
             bank_df = None
@@ -83,7 +114,7 @@ if uploaded_files:
                 bank_credit_df['Date'].fillna(method='ffill', inplace=True)
                 bank_credit_df = bank_credit_df[~bank_credit_df['Credit'].isna()]
                 bank_credit_df = bank_credit_df.drop(['Debit', 'Balance'], axis=1, errors='ignore')
-
+                
                 # Ensure 'Details' column exists
                 if 'Details' not in bank_credit_df.columns:
                     st.error("'Details' column not found in Receipts data.")
@@ -100,13 +131,13 @@ if uploaded_files:
 
                     # Merge with previous year's analysis if uploaded
                     if analysis_df is not None:
-                        if 'Details' not in analysis_df.columns:
-                            st.error("'Details' column not found in previous year's analysis.")
-                        else:
-                            analysis_df['Match'] = analysis_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
-                            # Merge based on 'Match' column
-                            bank_credit_df = pd.merge(bank_credit_df, analysis_df, on='Match', how='left', suffixes=('', '_previous'))
-                    
+                        bank_credit_df = pd.merge(
+                            bank_credit_df,
+                            analysis_df[['Match', 'Analysis']],
+                            on='Match',
+                            how='left'
+                        )
+
                     # Drop 'Match' column from final DataFrame
                     bank_credit_df.drop(columns=['Match'], inplace=True, errors='ignore')
 
@@ -118,7 +149,7 @@ if uploaded_files:
                 bank_debit_df['Date'].fillna(method='ffill', inplace=True)
                 bank_debit_df = bank_debit_df[~bank_debit_df['Debit'].isna()]
                 bank_debit_df = bank_debit_df.drop(['Credit', 'Balance'], axis=1, errors='ignore')
-
+                
                 # Ensure 'Details' column exists
                 if 'Details' not in bank_debit_df.columns:
                     st.error("'Details' column not found in Payments data.")
@@ -135,13 +166,13 @@ if uploaded_files:
 
                     # Merge with previous year's analysis if uploaded
                     if analysis_df is not None:
-                        if 'Details' not in analysis_df.columns:
-                            st.error("'Details' column not found in previous year's analysis.")
-                        else:
-                            analysis_df['Match'] = analysis_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
-                            # Merge based on 'Match' column
-                            bank_debit_df = pd.merge(bank_debit_df, analysis_df, on='Match', how='left', suffixes=('', '_previous'))
-                    
+                        bank_debit_df = pd.merge(
+                            bank_debit_df,
+                            analysis_df[['Match', 'Analysis']],
+                            on='Match',
+                            how='left'
+                        )
+
                     # Drop 'Match' column from final DataFrame
                     bank_debit_df.drop(columns=['Match'], inplace=True, errors='ignore')
 
@@ -161,10 +192,10 @@ if uploaded_files:
                 # Optionally, display a sample of the DataFrame
                 st.write("This is how the combined spreadsheet appears after cleaning:")
                 try:
-                    st.write(cleaned_df)
+                    st.dataframe(cleaned_df)
                 except Exception as e:
                     st.error(f"Error displaying DataFrame: {e}")
-                
+
                 # Create a CSV from the cleaned DataFrame
                 try:
                     csv = cleaned_df.to_csv(index=False)
