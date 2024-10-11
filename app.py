@@ -8,7 +8,7 @@ import io
 
 st.title("AIB Bank Statement Cleaner")
 st.write("Note that files are arranged alphabetically. If necessary, rename them according to their chronological order")
-st.write("e.g. "1 Jan-May", "2 Jun-Dec")
+st.write('e.g. "1 Jan-May", "2 Jun-Dec"')
 
 # File uploader for bank statements
 uploaded_files = st.file_uploader("Upload files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
