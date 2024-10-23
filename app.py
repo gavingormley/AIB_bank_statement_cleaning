@@ -6,6 +6,21 @@ from datetime import timedelta
 import os
 import io
 
+def fix_numbers(num_str): # this is for the amount column, this should be updated whenever common issues are observed
+    # Fix decimal place issues for pattern 1
+    pattern1 = r'[:;·,](\d{2}$)'  # Matches :, ;, ·, or , followed by two digits
+
+    # Fix numbers for pattern 2
+    pattern2 = r'(\d{1,3})[:;·,](\d{3})'  # Matches three digits, a comma, and another three digits
+
+    # First, apply pattern 1
+    num_str = re.sub(pattern1, r'.\1', num_str)
+
+    # Then, apply pattern 2 (removing the comma)
+    num_str = re.sub(pattern2, r'\1\2', num_str)
+
+    return num_str
+
 # Initialize Session State for uploaded files and analysis
 if 'uploaded_files' not in st.session_state:
     st.session_state.uploaded_files = []
@@ -144,8 +159,9 @@ if st.button("Process Statements", key='process_button', help="Click to process 
                             return None
                         
                         # Clean 'Credit' column
-                        bank_credit_df['Credit'] = bank_credit_df['Credit'].astype(str).str.replace(r'[^0-9,\.]', '', regex=True)
-                        bank_credit_df['Credit'] = bank_credit_df['Credit'].str.replace(r'(\d+),(\d+)', r'\1.\2', regex=True)
+                         # Apply the fix_numbers function to each entry in the 'Debit' column
+                        bank_credit_df['Credit'] = bank_credit_df['Credit'].apply(fix_numbers)
+                        
                         bank_credit_df['Credit'] = pd.to_numeric(bank_credit_df['Credit'], errors='coerce')
                         bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
                         bank_credit_df.reset_index(drop=True, inplace=True)
@@ -180,9 +196,10 @@ if st.button("Process Statements", key='process_button', help="Click to process 
                             st.error("'Details' column not found in Payments data.")
                             return None
                         
-                        # Clean 'Debit' column
-                        bank_debit_df['Debit'] = bank_debit_df['Debit'].astype(str).str.replace(r'[^0-9,\.]', '', regex=True)
-                        bank_debit_df['Debit'] = bank_debit_df['Debit'].str.replace(r'(\d+),(\d+)', r'\1.\2', regex=True)
+                         # Apply the fix_numbers function to each entry in the 'Debit' column
+                        bank_debit_df['Debit'] = bank_debit_df['Credit'].apply(fix_numbers)
+                        
+                        bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Credit'], errors='coerce')
                         bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Debit'], errors='coerce')
                         bank_debit_df = bank_debit_df.dropna(subset=['Debit'])
                         bank_debit_df.reset_index(drop=True, inplace=True)
