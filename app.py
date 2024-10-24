@@ -112,17 +112,22 @@ if uploaded_files:
                         bank_credit_df['Date'].fillna(method='ffill', inplace=True)
                         bank_credit_df = bank_credit_df[~bank_credit_df['Credit'].isna()]
                         bank_credit_df = bank_credit_df.drop(['Debit', 'Balance'], axis=1, errors='ignore')
-
+            
                         if 'Details' not in bank_credit_df.columns:
                             st.error("'Details' column not found in Receipts data.")
                             return None
-
+            
                         bank_credit_df['Credit'] = bank_credit_df['Credit'].apply(fix_numbers)
                         bank_credit_df['Credit'] = pd.to_numeric(bank_credit_df['Credit'], errors='coerce')
                         bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
                         bank_credit_df.reset_index(drop=True, inplace=True)
-                        bank_credit_df['Match'] = bank_credit_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
-
+            
+                        # Ensure that 'Details' column is of string type, handle NaN and non-string types
+                        bank_credit_df['Details'] = bank_credit_df['Details'].fillna('').astype(str)
+            
+                        # Now apply the string operations safely
+                        bank_credit_df['Match'] = bank_credit_df['Details'].str.lower().str.replace(r'\s+', '', regex=True)
+            
                         if analysis_mapping is not None:
                             bank_credit_df = bank_credit_df.merge(
                                 analysis_mapping,
@@ -130,10 +135,10 @@ if uploaded_files:
                                 right_on='Match',
                                 how='left'
                             )
-
+            
                         bank_credit_df.drop(columns=['Match'], inplace=True)
                         return bank_credit_df
-
+            
                     elif transaction_type == 'Payments':
                         bank_debit_df = bank_df[~(bank_df['Date'].isna() & bank_df['Debit'].isna())]
                         bank_debit_df = bank_debit_df[bank_debit_df['Date'].astype(str).str.lower() != 'date']
@@ -141,17 +146,22 @@ if uploaded_files:
                         bank_debit_df['Date'].fillna(method='ffill', inplace=True)
                         bank_debit_df = bank_debit_df[~bank_debit_df['Debit'].isna()]
                         bank_debit_df = bank_debit_df.drop(['Credit', 'Balance'], axis=1, errors='ignore')
-
+            
                         if 'Details' not in bank_debit_df.columns:
                             st.error("'Details' column not found in Payments data.")
                             return None
-
+            
                         bank_debit_df['Debit'] = bank_debit_df['Debit'].apply(fix_numbers)
                         bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Debit'], errors='coerce')
                         bank_debit_df = bank_debit_df.dropna(subset=['Debit'])
                         bank_debit_df.reset_index(drop=True, inplace=True)
-                        bank_debit_df['Match'] = bank_debit_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
-
+            
+                        # Ensure that 'Details' column is of string type, handle NaN and non-string types
+                        bank_debit_df['Details'] = bank_debit_df['Details'].fillna('').astype(str)
+            
+                        # Now apply the string operations safely
+                        bank_debit_df['Match'] = bank_debit_df['Details'].str.lower().str.replace(r'\s+', '', regex=True)
+            
                         if analysis_mapping is not None:
                             bank_debit_df = bank_debit_df.merge(
                                 analysis_mapping,
@@ -159,10 +169,10 @@ if uploaded_files:
                                 right_on='Match',
                                 how='left'
                             )
-
+            
                         bank_debit_df.drop(columns=['Match'], inplace=True)
                         return bank_debit_df
-
+            
                 except Exception as e:
                     st.error(f"Error during data cleaning: {e}")
                     return None
