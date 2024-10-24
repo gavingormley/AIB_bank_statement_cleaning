@@ -6,117 +6,79 @@ from datetime import timedelta
 import os
 import io
 
-def fix_numbers(num_str): # this is for the amount column, this should be updated whenever common issues are observed
+def fix_numbers(num_str):
     # Fix decimal place issues for pattern 1
     pattern1 = r'[:;·,](\d{2}$)'  # Matches :, ;, ·, or , followed by two digits
-
     # Fix numbers for pattern 2
     pattern2 = r'(\d{1,3})[:;·,](\d{3})'  # Matches three digits, a comma, and another three digits
 
-    # First, apply pattern 1
+    # Apply pattern 1
     num_str = re.sub(pattern1, r'.\1', num_str)
-
-    # Then, apply pattern 2 (removing the comma)
+    # Apply pattern 2 (removing the comma)
     num_str = re.sub(pattern2, r'\1\2', num_str)
 
     return num_str
-
-# Initialize Session State for uploaded files and analysis
-if 'uploaded_files' not in st.session_state:
-    st.session_state.uploaded_files = []
-if 'previous_year_analysis' not in st.session_state:
-    st.session_state.previous_year_analysis = None
 
 st.title("AIB Bank Statement Cleaner")
 st.write("**Note:** Files are arranged alphabetically. If necessary, rename them according to their chronological order (e.g., '1 Jan-May', '2 Jun-Dec').")
 
 # Section for Selecting Transaction Type
 st.header("Select Transaction Type")
-transaction_type = st.selectbox("Select Transaction Type:", ('Receipts', 'Payments'), key='transaction_type_selector')
+transaction_type = st.selectbox("Select Transaction Type:", ('Receipts', 'Payments'))
 
 # Section for Uploading Previous Year's Analysis
 st.header("Previous Year's Analysis (Optional)")
 add_previous_year = st.checkbox("Do you want to upload the previous year's analysis?")
 
+analysis_df_processed = None
 if add_previous_year:
-    uploaded_analysis = st.file_uploader("Upload previous year's analysis", type=['xlsx', 'xls'], key='analysis_uploader')
+    uploaded_analysis = st.file_uploader("Upload previous year's analysis", type=['xlsx', 'xls'])
     
     if uploaded_analysis:
         def process_previous_analysis(uploaded_analysis, transaction_type):
             try:
                 sheet_name = 'ReceiptsAnalysis' if transaction_type == 'Receipts' else 'Payments Analysis'
-                
-                # Read the specified sheet without assuming headers
                 temp_df = pd.read_excel(uploaded_analysis, sheet_name=sheet_name, header=None)
-                
-                # Find the header row where the first column contains "Date" (case-insensitive)
                 header_row_indices = temp_df[temp_df.iloc[:, 0].astype(str).str.contains("Date", case=False, na=False)].index.tolist()
                 if not header_row_indices:
                     st.error("No header row containing 'Date' found in the analysis file.")
                     return None
                 header_row = header_row_indices[0]
-                
-                # Set the header
                 temp_df.columns = temp_df.iloc[header_row]
                 temp_df = temp_df.drop(range(header_row + 1)).reset_index(drop=True)
-                
-                # Ensure only 'Details' and 'Analysis' columns are present
+
                 required_columns = ['Details', 'Analysis']
                 for col in required_columns:
                     if col not in temp_df.columns:
                         st.error(f"'{col}' column not found in the analysis file.")
                         return None
-                
-                # Select only 'Details' and 'Analysis' columns
+
                 analysis_df = temp_df[required_columns].copy()
-                
-                # Create the 'Match' column by stripping whitespace and converting to lowercase
                 analysis_df['Match'] = analysis_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
-                
-                # Create a mapping of the most frequent analysis for each unique match
                 analysis_mapping = (
                     analysis_df.groupby('Match')['Analysis']
-                    .agg(lambda x: x.value_counts().index[0])  # Get the most common analysis
+                    .agg(lambda x: x.value_counts().index[0])  # Most common analysis
                     .reset_index()
                 )
-                
                 return analysis_mapping
             except Exception as e:
                 st.error(f"Error processing previous year's analysis: {e}")
                 return None
 
-        # Process the uploaded analysis
         analysis_df_processed = process_previous_analysis(uploaded_analysis, transaction_type)
         if analysis_df_processed is not None:
-            st.session_state.previous_year_analysis = analysis_df_processed
             st.success("Previous year's analysis loaded successfully.")
-        else:
-            st.session_state.previous_year_analysis = None
 
 # Section for Uploading Current Year's Bank Statements
 st.header("Upload Current Year's Bank Statements")
-uploaded_files = st.file_uploader("Upload current year's files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True, key='current_files_uploader')
+uploaded_files = st.file_uploader("Upload current year's files", type=['xlsx', 'xls', 'csv'], accept_multiple_files=True)
 
 if uploaded_files:
-    # Store uploaded files in session state if not already stored
-    st.session_state.uploaded_files.extend(uploaded_files)
-
-    # Display the names of the uploaded files
     st.write("**Uploaded Files:**")
-    for file in st.session_state.uploaded_files:
+    for file in uploaded_files:
         st.write(f"- {file.name}")
 
-# Button to clear uploaded files
-if st.button("Clear Uploaded Files"):
-    st.session_state.uploaded_files.clear()
-    st.session_state.previous_year_analysis = None  # Clear previous year analysis as well
-    st.success("Uploaded files and previous year's analysis cleared.")
-
-# Button to Trigger Processing
-# Use st.button with a custom style for visibility
-if st.button("Process Statements", key='process_button', help="Click to process the uploaded bank statements."):
-    # Process uploaded files only if they exist in session state
-    if st.session_state.uploaded_files:
+    if st.button("Process Statements"):
         def process_bank_files(uploaded_files):
             bank_df_list = []
             for file in uploaded_files:
@@ -130,46 +92,36 @@ if st.button("Process Statements", key='process_button', help="Click to process 
                     st.warning(f"Failed to read {file.name}: {e}")
             return bank_df_list
 
-        # Combine all bank statements into one DataFrame
-        bank_df_list = process_bank_files(st.session_state.uploaded_files)  # Call the function to process files
+        bank_df_list = process_bank_files(uploaded_files)
         if bank_df_list:
             try:
                 bank_df = pd.concat(bank_df_list, ignore_index=True)
                 st.write("**Preview of Combined Bank Statements Before Cleaning:**")
-                st.dataframe(bank_df)  # Display only the first few rows for brevity
+                st.dataframe(bank_df)
             except Exception as e:
                 st.error(f"Error combining bank statements: {e}")
                 st.stop()
 
-            # Cleaning Function
             def clean_data(bank_df, transaction_type, analysis_mapping=None):
                 try:
                     if transaction_type == 'Receipts':
-                        # Cleaning the dataframe for Receipts
                         bank_credit_df = bank_df[~(bank_df['Date'].isna() & bank_df['Credit'].isna())]
                         bank_credit_df = bank_credit_df[bank_credit_df['Date'].astype(str).str.lower() != 'date']
                         bank_credit_df['Date'] = pd.to_datetime(bank_credit_df['Date'], errors='coerce')
                         bank_credit_df['Date'].fillna(method='ffill', inplace=True)
                         bank_credit_df = bank_credit_df[~bank_credit_df['Credit'].isna()]
                         bank_credit_df = bank_credit_df.drop(['Debit', 'Balance'], axis=1, errors='ignore')
-                        
-                        # Ensure 'Details' column exists
+
                         if 'Details' not in bank_credit_df.columns:
                             st.error("'Details' column not found in Receipts data.")
                             return None
-                        
-                        # Clean 'Credit' column
-                         # Apply the fix_numbers function to each entry in the 'Debit' column
+
                         bank_credit_df['Credit'] = bank_credit_df['Credit'].apply(fix_numbers)
-                        
                         bank_credit_df['Credit'] = pd.to_numeric(bank_credit_df['Credit'], errors='coerce')
                         bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
                         bank_credit_df.reset_index(drop=True, inplace=True)
-
-                        # Create a matching column by stripping whitespace and converting to lowercase
                         bank_credit_df['Match'] = bank_credit_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
 
-                        # Merge with previous year's analysis mapping if available
                         if analysis_mapping is not None:
                             bank_credit_df = bank_credit_df.merge(
                                 analysis_mapping,
@@ -178,36 +130,27 @@ if st.button("Process Statements", key='process_button', help="Click to process 
                                 how='left'
                             )
 
-                        # Drop the 'Match' column before returning
                         bank_credit_df.drop(columns=['Match'], inplace=True)
                         return bank_credit_df
 
                     elif transaction_type == 'Payments':
-                        # Cleaning the dataframe for Payments
                         bank_debit_df = bank_df[~(bank_df['Date'].isna() & bank_df['Debit'].isna())]
                         bank_debit_df = bank_debit_df[bank_debit_df['Date'].astype(str).str.lower() != 'date']
                         bank_debit_df['Date'] = pd.to_datetime(bank_debit_df['Date'], errors='coerce')
                         bank_debit_df['Date'].fillna(method='ffill', inplace=True)
                         bank_debit_df = bank_debit_df[~bank_debit_df['Debit'].isna()]
                         bank_debit_df = bank_debit_df.drop(['Credit', 'Balance'], axis=1, errors='ignore')
-                        
-                        # Ensure 'Details' column exists
+
                         if 'Details' not in bank_debit_df.columns:
                             st.error("'Details' column not found in Payments data.")
                             return None
-                        
-                         # Apply the fix_numbers function to each entry in the 'Debit' column
-                        bank_debit_df['Debit'] = bank_debit_df['Credit'].apply(fix_numbers)
-                        
-                        bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Credit'], errors='coerce')
+
+                        bank_debit_df['Debit'] = bank_debit_df['Debit'].apply(fix_numbers)
                         bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Debit'], errors='coerce')
                         bank_debit_df = bank_debit_df.dropna(subset=['Debit'])
                         bank_debit_df.reset_index(drop=True, inplace=True)
-
-                        # Create a matching column by stripping whitespace and converting to lowercase
                         bank_debit_df['Match'] = bank_debit_df['Details'].astype(str).str.lower().str.replace(r'\s+', '', regex=True)
 
-                        # Merge with previous year's analysis mapping if available
                         if analysis_mapping is not None:
                             bank_debit_df = bank_debit_df.merge(
                                 analysis_mapping,
@@ -216,7 +159,6 @@ if st.button("Process Statements", key='process_button', help="Click to process 
                                 how='left'
                             )
 
-                        # Drop the 'Match' column before returning
                         bank_debit_df.drop(columns=['Match'], inplace=True)
                         return bank_debit_df
 
@@ -224,11 +166,11 @@ if st.button("Process Statements", key='process_button', help="Click to process 
                     st.error(f"Error during data cleaning: {e}")
                     return None
 
-            cleaned_data_credit = clean_data(bank_df, transaction_type, st.session_state.previous_year_analysis)
+            cleaned_data_credit = clean_data(bank_df, transaction_type, analysis_df_processed)
 
             if cleaned_data_credit is not None:
                 st.write("**Preview of Cleaned Data:**")
                 st.dataframe(cleaned_data_credit)
 
-    else:
-        st.warning("Please upload bank statements before processing.")
+else:
+    st.warning("Please upload bank statements before processing.")
