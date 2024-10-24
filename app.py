@@ -5,6 +5,7 @@ from pathlib import Path
 from datetime import timedelta
 import os
 import io
+import re
 
 def fix_numbers(num_str):
     # Fix decimal place issues for pattern 1
