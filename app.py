@@ -105,6 +105,13 @@ if uploaded_files:
 
             def clean_data(bank_df, transaction_type, analysis_mapping=None):
                 try:
+                    # Ensure all relevant columns are strings
+                    bank_df['Details'] = bank_df['Details'].fillna('').astype(str)
+                    if 'Credit' in bank_df.columns:
+                        bank_df['Credit'] = bank_df['Credit'].fillna('').astype(str)
+                    if 'Debit' in bank_df.columns:
+                        bank_df['Debit'] = bank_df['Debit'].fillna('').astype(str)
+                        
                     if transaction_type == 'Receipts':
                         bank_credit_df = bank_df[~(bank_df['Date'].isna() & bank_df['Credit'].isna())]
                         bank_credit_df = bank_credit_df[bank_credit_df['Date'].astype(str).str.lower() != 'date']
