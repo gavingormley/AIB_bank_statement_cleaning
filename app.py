@@ -102,54 +102,61 @@ if uploaded_files:
                 try:
                     # Ensure all relevant columns are strings
                     bank_df['Details'] = bank_df['Details'].fillna('').astype(str)
-                    if 'Credit' in bank_df.columns:
-                        bank_df['Credit'] = bank_df['Credit'].fillna('').astype(str)
-                    if 'Debit' in bank_df.columns:
-                        bank_df['Debit'] = bank_df['Debit'].fillna('').astype(str)
+                    if 'Amount' in bank_df.columns and 'Credit' not in bank_df.columns and 'Debit' not in bank_df.columns:
+                        # Split the 'Amount' column into 'Credit' and 'Debit'
+                        bank_df['Credit'] = bank_df['Amount'].apply(lambda x: x if 'CR' in str(x).upper() else None)
+                        bank_df['Debit'] = bank_df['Amount'].apply(lambda x: x if 'CR' not in str(x).upper() else None)
                         
+                        # Remove 'CR' from the 'Credit' column for proper numeric conversion
+                        bank_df['Credit'] = bank_df['Credit'].str.replace('CR', '', case=False, regex=True).str.strip()
+            
+                        # Handle NaN and ensure columns are strings for further processing
+                        bank_df['Credit'] = bank_df['Credit'].fillna('').astype(str)
+                        bank_df['Debit'] = bank_df['Debit'].fillna('').astype(str)
+            
                     if transaction_type == 'Receipts':
                         # Filter out rows where both Date and Credit are NaN
                         bank_credit_df = bank_df[~(bank_df['Date'].isna() & bank_df['Credit'].isna())]
-                        
+            
                         # Remove rows where the 'Date' column is just the string 'date'
                         bank_credit_df = bank_credit_df[bank_credit_df['Date'].astype(str).str.lower() != 'date']
-
+            
                         # Convert 'Date' column to datetime, coerce errors to NaT (Not a Time)
                         bank_credit_df['Date'] = pd.to_datetime(bank_credit_df['Date'], errors='coerce', dayfirst=True)
-
+            
                         # Handle any NaT (invalid dates) by filling forward
                         bank_credit_df['Date'].fillna(method='ffill', inplace=True)
-
+            
                         # Ensure the 'Date' column is in dd/mm/yyyy format (as string)
                         bank_credit_df['Date'] = bank_credit_df['Date'].dt.strftime('%d/%m/%Y')
-
+            
                         # Filter out rows with NaN in 'Credit'
                         bank_credit_df = bank_credit_df[~bank_credit_df['Credit'].isna()]
-                        
+            
                         # Drop unnecessary columns like 'Debit' and 'Balance'
                         bank_credit_df = bank_credit_df.drop(['Debit', 'Balance'], axis=1, errors='ignore')
-
+            
                         # Check for 'Details' column
                         if 'Details' not in bank_credit_df.columns:
                             st.error("'Details' column not found in Receipts data.")
                             return None
-
+            
                         # Apply the fix_numbers function to the 'Credit' column
                         bank_credit_df['Credit'] = bank_credit_df['Credit'].apply(fix_numbers)
                         bank_credit_df['Credit'] = pd.to_numeric(bank_credit_df['Credit'], errors='coerce')
-
+            
                         # Drop rows where 'Credit' is NaN after the conversion
                         bank_credit_df = bank_credit_df.dropna(subset=['Credit'])
-
+            
                         # Reset index
                         bank_credit_df.reset_index(drop=True, inplace=True)
-
+            
                         # Ensure that 'Details' column is of string type, handle NaN and non-string types
                         bank_credit_df['Details'] = bank_credit_df['Details'].fillna('').astype(str)
-
+            
                         # Now apply the string operations safely
                         bank_credit_df['Match'] = bank_credit_df['Details'].str.lower().str.replace(r'\s+', '', regex=True)
-
+            
                         if analysis_mapping is not None:
                             bank_credit_df = bank_credit_df.merge(
                                 analysis_mapping,
@@ -157,38 +164,38 @@ if uploaded_files:
                                 right_on='Match',
                                 how='left'
                             )
-
+            
                         bank_credit_df.drop(columns=['Match'], inplace=True)
                         return bank_credit_df
-
+            
                     elif transaction_type == 'Payments':
                         # Similar steps for the Payments section
                         bank_debit_df = bank_df[~(bank_df['Date'].isna() & bank_df['Debit'].isna())]
                         bank_debit_df = bank_debit_df[bank_debit_df['Date'].astype(str).str.lower() != 'date']
                         bank_debit_df['Date'] = pd.to_datetime(bank_debit_df['Date'], errors='coerce', dayfirst=True)
                         bank_debit_df['Date'].fillna(method='ffill', inplace=True)
-
+            
                         # Ensure the 'Date' column is in dd/mm/yyyy format (as string)
                         bank_debit_df['Date'] = bank_debit_df['Date'].dt.strftime('%d/%m/%Y')
-
+            
                         bank_debit_df = bank_debit_df[~bank_debit_df['Debit'].isna()]
                         bank_debit_df = bank_debit_df.drop(['Credit', 'Balance'], axis=1, errors='ignore')
-
+            
                         if 'Details' not in bank_debit_df.columns:
                             st.error("'Details' column not found in Payments data.")
                             return None
-
+            
                         bank_debit_df['Debit'] = bank_debit_df['Debit'].apply(fix_numbers)
                         bank_debit_df['Debit'] = pd.to_numeric(bank_debit_df['Debit'], errors='coerce')
                         bank_debit_df = bank_debit_df.dropna(subset=['Debit'])
                         bank_debit_df.reset_index(drop=True, inplace=True)
-
+            
                         # Ensure 'Details' column is safe for processing
                         bank_debit_df['Details'] = bank_debit_df['Details'].fillna('').astype(str)
-
+            
                         # Apply string operations to 'Details' column
                         bank_debit_df['Match'] = bank_debit_df['Details'].str.lower().str.replace(r'\s+', '', regex=True)
-
+            
                         if analysis_mapping is not None:
                             bank_debit_df = bank_debit_df.merge(
                                 analysis_mapping,
@@ -196,14 +203,14 @@ if uploaded_files:
                                 right_on='Match',
                                 how='left'
                             )
-
+            
                         bank_debit_df.drop(columns=['Match'], inplace=True)
                         return bank_debit_df
-
+            
                 except Exception as e:
                     st.error(f"Error during data cleaning: {e}")
                     return None
-
+        
             # Process the data based on the selected transaction type
             cleaned_data = clean_data(bank_df, transaction_type, analysis_df_processed)
 
